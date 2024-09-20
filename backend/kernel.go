@@ -121,15 +121,12 @@ func (mgr *Kernel_manager) Get_kernels() []Kernel {
 
 //export op_callback
 func op_callback(result C.int) {
-	fmt.Println("XXX op_callback", Krlmgr, result)
 	data := result == 1
 
 	Krlmgr.App.EmitEvent("kernelOpFinished", data)
 }
 
 func (mgr *Kernel_manager) Install_kernel(name string) {
-	fmt.Println("XXX INSTALL", name)
-
 	cName := C.CString(name)
 	defer C.free(unsafe.Pointer(cName))
 
@@ -137,8 +134,6 @@ func (mgr *Kernel_manager) Install_kernel(name string) {
 }
 
 func (mgr *Kernel_manager) Remove_kernel(name string) {
-	fmt.Println("XXX REMOVE", name)
-
 	cName := C.CString(name)
 	defer C.free(unsafe.Pointer(cName))
 

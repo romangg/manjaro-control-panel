@@ -22,6 +22,8 @@ var assets embed.FS
 func main() {
 	// TODO: this should lazy load
 	backend.Krlmgr.Create_db()
+	backend.Fill_devices()
+	backend.Update_configs()
 
 	// Create a new Wails application by providing the necessary options.
 	// Variables 'Name' and 'Description' are for application metadata.

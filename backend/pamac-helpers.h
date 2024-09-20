@@ -43,9 +43,6 @@ static inline void install_callback(GObject* source_object, GAsyncResult* res, g
     PamacTransaction* transaction = (PamacTransaction*)source_object;
     gboolean success = pamac_transaction_run_finish(transaction, res);
 
-    printf("XXX INSTALL CALLBACK!\n");
-    fflush(stdout);
-
     op_callback(success);
 }
 
@@ -60,15 +57,11 @@ static inline void install_kernel(PamacDatabase* db, char const* name) {
     pamac_transaction_add_pkg_to_install(transaction, headers);
 
     pamac_transaction_run_async(transaction, install_callback, NULL);
-    printf("XXX END INSTALL KERNEL\n");
-    fflush(stdout);
 }
 
 static inline void remove_callback(GObject* source_object, GAsyncResult* res, gpointer data) {
     PamacTransaction* transaction = (PamacTransaction*)source_object;
     gboolean success = pamac_transaction_run_finish(transaction, res);
-    printf("XXX REMOVE CALLBACK!\n");
-    fflush(stdout);
 
     op_callback(success);
 }
@@ -84,8 +77,6 @@ static inline void remove_kernel(PamacDatabase* db, char const* name) {
     pamac_transaction_add_pkg_to_remove(transaction, headers);
 
     pamac_transaction_run_async(transaction, remove_callback, NULL);
-    printf("XXX END REMOVE KERNEL\n");
-    fflush(stdout);
 }
 
 static inline void free_kernels(struct kernels* kernels) {

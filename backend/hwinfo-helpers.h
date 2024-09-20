@@ -33,9 +33,6 @@ static inline hw_list hw_get_devices(hwtype type) {
     list.data = (hd_data_t*)calloc(1, sizeof *list.data);
     list.first = hd_list(list.data, hw, 1, NULL);
 
-    printf("XXX hw_get_devices END\n");
-    fflush(stdout);
-
     return list;
 }
 

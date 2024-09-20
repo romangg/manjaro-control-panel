@@ -9,5 +9,5 @@ type HwService struct {
 }
 
 func (g *HwService) Devices() []backend.Hw_device {
-	return backend.Hwmgr.Usb_devices
+	return backend.Hwmgr.Pci_devices
 }

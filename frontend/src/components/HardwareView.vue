@@ -1,7 +1,9 @@
 <template>
   <h3>Hardware</h3>
   <div v-for="dev in devices">
-    {{ dev }}
+    <div v-if="dev.Installed_configs.length + dev.Available_configs.length > 0">
+      {{ dev.Vendor_name }} - {{ dev.Class_name }} <br>Avail. cfgs: {{ dev.Available_configs }}<br> Installed. cfgs: {{ dev.Installed_configs }}
+    </div>
   </div>
 </template>
 
