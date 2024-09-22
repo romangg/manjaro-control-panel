@@ -10,10 +10,12 @@ const (
 type Hw_device struct {
 	Kind Hw_kind
 
-	Class_name, Class_id   string
-	Device_name, Device_id string
-	Vendor_name, Vendor_id string
-	Sysfs_bus_id, Sysfs_id string
+	Model                        string
+	Class_name, Class_id         string
+	Device_name, Device_id       string
+	Vendor_name, Vendor_id       string
+	Subvendor_name, Subvendor_id string
+	Sysfs_bus_id, Sysfs_id       string
 
 	Available_configs, Installed_configs []*Hw_config
 }

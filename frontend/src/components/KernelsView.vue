@@ -16,6 +16,11 @@ const getKernels = () => {
   });
 }
 
+const items = [
+  { label: 'Control Panel', route: '/' },
+  { label: 'Kernels' },
+];
+
 const doInstall = (name) => {
   backendOpActive.value = name
   KernelService.Install(name)
@@ -36,16 +41,48 @@ onMounted(() => {
 </script>
 
 <template>
-  <h1  style="activeClass">Kernels</h1>
-
-  <div :style="{ activeClass: !backendOpActive}">
-    <div v-for="kernel in kernels"  style="activeClass">
-      {{ kernel.Name }} - {{ kernel.Version }} - {{ kernel.Lts }} <button v-if="!kernel.Installed"
-        @click="doInstall(kernel.Name)">Install</button><button v-if="kernel.Installed"
-        @click="doRemove(kernel.Name)">Remove</button>
-        <div v-if="backendOpActive == kernel.Name">IN PROGRESS</div>
-    </div>
-  </div>
+  <Breadcrumb :home="home" :model="items">
+    <template #item="{ item, props }">
+      <router-link v-if="item.route" v-slot="{ href, navigate }" :to="item.route" custom>
+        <a :href="href" v-bind="props.action" @click="navigate">
+          <span>{{ item.label }}</span>
+        </a>
+      </router-link>
+      <a v-else :href="item.url" :target="item.target" v-bind="props.action">
+        <span>{{ item.label }}</span>
+      </a>
+    </template>
+  </Breadcrumb>
+  <DataView :value="kernels">
+    <template #list="slotProps">
+      <div class="flex flex-col">
+        <div v-for="(kernel, index) in slotProps.items" :key="index">
+          <div class="flex flex-col p-6 gap-4"
+            :class="{ 'border-t border-surface-200 dark:border-surface-700': index !== 0 }">
+            <div class="grid grid-cols-3 gap-4 items-center">
+              <div>
+                <h3 class="font-semibold text-2xl">
+                  Linux {{ kernel.Version }}
+                </h3>
+                {{ kernel.Name }}
+              </div>
+              <div class="justify-self-center">
+                <div class="flex flex-wrap justify-center gap-3">
+                  <Message v-if="kernel.Recommended" severity="help">Recommended</Message>
+                  <Message v-if="kernel.Lts" severity="info">LTS</Message>
+                  <Message v-if="kernel.RealTime" severity="info">Real-time</Message>
+                </div>
+              </div>
+              <div class="justify-self-center">
+                <Button v-if="kernel.Installed" severity="danger" @click="doRemove(kernel.Name)">Remove</Button>
+                <Button v-else @click="doInstall(kernel.Name)">Install</Button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </template>
+  </DataView>
 </template>
 
 <style scoped>

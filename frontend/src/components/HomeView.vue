@@ -12,6 +12,13 @@ const goToHardware = () => {
 </script>
 
 <template>
-  <button @click="goToKernels">Kernels</button>
-  <button @click="goToHardware">Hardware</button>
+  <div class="h-screen flex items-center justify-center">
+    <div>
+      <h1 class="text-3xl pb-8 text-center">Control Panel</h1>
+      <div class="flex gap-4">
+        <Button label="Kernels" @click="goToKernels" />
+        <Button label="Hardware" @click="goToHardware" />
+      </div>
+    </div>
+  </div>
 </template>

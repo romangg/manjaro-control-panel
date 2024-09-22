@@ -7,6 +7,8 @@ package backend
 import "C"
 import (
 	"fmt"
+	"os"
+	"os/exec"
 	"strings"
 	"unsafe"
 
@@ -63,10 +65,14 @@ func get_devices(kind Hw_kind) []Hw_device {
 		dev.Class_id = from_hex(uint16(hd.base_class.id), 2) +
 			strings.ToLower(from_hex(uint16(hd.sub_class.id), 2))
 		dev.Vendor_id = strings.ToLower(from_hex(uint16(hd.vendor.id), 4))
+		dev.Subvendor_id = strings.ToLower(from_hex(uint16(hd.sub_vendor.id), 4))
 		dev.Device_id = strings.ToLower(from_hex(uint16(hd.device.id), 4))
+
+		dev.Model = from_char_array(hd.model)
 
 		dev.Class_name = from_char_array(hd.base_class.name)
 		dev.Vendor_name = from_char_array(hd.vendor.name)
+		dev.Subvendor_name = from_char_array(hd.sub_vendor.name)
 		dev.Device_name = from_char_array(hd.device.name)
 		dev.Sysfs_bus_id = from_char_array(hd.sysfs_bus_id)
 		dev.Sysfs_id = from_char_array(hd.sysfs_id)
@@ -79,4 +85,57 @@ func get_devices(kind Hw_kind) []Hw_device {
 	C.free(unsafe.Pointer(hw_list.data))
 
 	return devices
+}
+
+func (mgr *Hw_manager) Install_free_gpu_config() bool {
+	fmt.Println("MHWD will autodetect your open-source graphic drivers and install it.")
+	return install_gpu_config("free")
+}
+
+func (mgr *Hw_manager) Install_proprietary_gpu_config() bool {
+	fmt.Println("MHWD will autodetect your proprietary graphic drivers and install it.")
+	return install_gpu_config("nonfree")
+}
+
+func install_gpu_config(sel string) bool {
+	// Arguments for the installation process
+	args := []string{"-a", "pci", sel, "0300"}
+
+	if err := exec_mhwd(args); err != nil {
+		fmt.Println("Install failed: ", err)
+		return false
+	}
+
+	fmt.Println("Installation completed successfully.")
+	return true
+}
+
+func (mgr *Hw_manager) Install_pci_config(name string) bool {
+	fmt.Println("MHWD will install the '", name, "' configuration.")
+	return exec_pci_config_op(name, "-i")
+}
+
+func (mgr *Hw_manager) Remove_pci_config(name string) bool {
+	fmt.Println("MHWD will remove the '", name, "' configuration.")
+	return exec_pci_config_op(name, "-r")
+}
+
+func exec_pci_config_op(name string, sel string) bool {
+	// Arguments for the installation process
+	args := []string{sel, "pci", name}
+
+	if err := exec_mhwd(args); err != nil {
+		fmt.Println("Operation failed: ", err)
+		return false
+	}
+
+	fmt.Println("MHWD " + sel + "-operation completed successfully.")
+	return true
+}
+
+func exec_mhwd(args []string) error {
+	cmd := exec.Command("mhwd", args...)
+	cmd.Stdout = os.Stdout
+	cmd.Stderr = os.Stderr
+	return cmd.Run()
 }

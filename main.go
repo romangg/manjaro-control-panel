@@ -35,7 +35,7 @@ func main() {
 		Description: "Change basic settings of a Manjaro installation.",
 		Services: []application.Service{
 			application.NewService(&KernelService{&backend.Krlmgr}),
-			application.NewService(&HwService{&backend.Hwmgr}),
+			application.NewService(&HwService{}),
 		},
 		Assets: application.AssetOptions{
 			Handler: application.AssetFileServerFS(assets),
