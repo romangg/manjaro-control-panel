@@ -71,6 +71,7 @@ onMounted(() => {
                   <Message v-if="kernel.Recommended" severity="help">Recommended</Message>
                   <Message v-if="kernel.Lts" severity="info">LTS</Message>
                   <Message v-if="kernel.RealTime" severity="info">Real-time</Message>
+                  <Message v-if="kernel.Eol" severity="error">Unsupported</Message>
                 </div>
               </div>
               <div class="justify-self-center">
