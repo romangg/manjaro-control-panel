@@ -68,6 +68,7 @@ onMounted(() => {
               </div>
               <div class="justify-self-center">
                 <div class="flex flex-wrap justify-center gap-3">
+                  <Message v-if="kernel.Running" severity="contrast">Running</Message>
                   <Message v-if="kernel.Recommended" severity="help">Recommended</Message>
                   <Message v-if="kernel.Lts" severity="info">LTS</Message>
                   <Message v-if="kernel.RealTime" severity="info">Real-time</Message>
@@ -75,7 +76,8 @@ onMounted(() => {
                 </div>
               </div>
               <div class="justify-self-center">
-                <Button v-if="kernel.Installed" severity="danger" @click="doRemove(kernel.Name)">Remove</Button>
+                <Button v-if="kernel.Installed" severity="danger" @click="doRemove(kernel.Name)"
+                  :disabled="kernel.Running">Remove</Button>
                 <Button v-else @click="doInstall(kernel.Name)">Install</Button>
               </div>
             </div>

@@ -37,6 +37,7 @@ type Kernel struct {
 	Recommended  bool
 	Lts          bool
 	Eol          bool
+	Running      bool
 
 	Installed_modules []string
 }
@@ -68,7 +69,7 @@ func get_kernel_version(kernel string) (*kernel_version, error) {
 	if err != nil {
 		return nil, errors.New("Error on kernel major version " + kernel + ": " + err.Error())
 	}
-	minor, err := strconv.Atoi(kernel_split[1])
+	minor, err := strconv.Atoi(strings.Split(kernel_split[1], "_")[0])
 	if err != nil {
 		return nil, errors.New("Error on kernel minor version " + kernel + ": " + err.Error())
 	}
@@ -147,16 +148,22 @@ func (mgr *Kernel_manager) Get_kernels() []Kernel {
 		kernels = append(kernels, k)
 	}
 
+	running_kernel := get_running_kernel()
+	running_kernel_version, _ := get_kernel_version(running_kernel.Version)
+
 	for i := range kernels {
 		k := &kernels[i]
 
-		if !k.Installed {
-			continue
+		if version, _ := get_kernel_version(k.Version); version != nil && *running_kernel_version == *version &&
+			running_kernel.RealTime == k.RealTime {
+			k.Running = true
 		}
 
-		for _, mod := range modules {
-			if strings.HasPrefix(mod, k.Name) {
-				k.Installed_modules = append(k.Installed_modules, mod)
+		if k.Installed {
+			for _, mod := range modules {
+				if strings.HasPrefix(mod, k.Name) {
+					k.Installed_modules = append(k.Installed_modules, mod)
+				}
 			}
 		}
 	}
@@ -227,4 +234,39 @@ func get_installed_packages() map[string]string {
 	}
 
 	return packages
+}
+
+// executes "uname -r" and parses the running kernel version.
+func get_running_kernel() Kernel {
+	// Prepare the command
+	cmd := exec.Command("uname", "-r")
+	cmd.Env = append(cmd.Env, "LANG=C", "LC_MESSAGES=C", "LC_ALL=C")
+
+	// Capture the output
+	var out bytes.Buffer
+	cmd.Stdout = &out
+	err := cmd.Run()
+	if err != nil {
+		log.Println("error: failed to get running kernel", err)
+		return Kernel{}
+	}
+
+	// Process the output
+	result := strings.TrimSpace(out.String())
+	aux := strings.Split(result, ".")
+	if len(aux) < 2 {
+		log.Println("error: unexpected kernel version format")
+		return Kernel{}
+	}
+
+	// Extract version (major.minor)
+	version := aux[0] + "." + aux[1]
+	kernel := Kernel{Version: version}
+
+	// Check if the kernel is real-time (contains "-rt")
+	if strings.Contains(result, "-rt") {
+		kernel.RealTime = true
+	}
+
+	return kernel
 }
