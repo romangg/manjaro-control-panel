@@ -1,30 +1,22 @@
 package backend
 
-/*
-#cgo pkg-config: pamac
-extern void op_callback(int result);
-#include "pamac-helpers.h"
-*/
-import "C"
-
 import (
 	"bytes"
 	"errors"
 	"fmt"
 	"log"
 	"os/exec"
+	"regexp"
 	"slices"
 	"sort"
 	"strconv"
 	"strings"
-	"unsafe"
 
 	"github.com/wailsapp/wails/v3/pkg/application"
 )
 
 type Kernel_manager struct {
-	impl C.kernel_manager
-	App  *application.App
+	App *application.App
 }
 
 type Kernel struct {
@@ -48,14 +40,6 @@ var recommended_kernels = []string{"linux414", "linux419", "linux54", "linux510"
 var lts_kernels = []string{"linux310", "linux312", "linux314", "linux316", "linux318", "linux41", "linux44", "linux49", "linux414", "linux414-rt", "linux419", "linux419-rt", "linux54", "linux510", "linux515", "linux61", "linux66"}
 
 const pacman_kernel_regex = `^linux([0-9][0-9]?([0-9])|[0-9][0-9]?([0-9])-rt)`
-
-func to_go_string(s *C.gchar) string {
-	return C.GoString((*C.char)(s))
-}
-
-func to_go_bool(gbool C.gboolean) bool {
-	return gbool != 0
-}
 
 type kernel_version struct {
 	Major int
@@ -98,34 +82,46 @@ func is_newer(check string, cmp string) bool {
 	return version.Major > cmp_version.Major
 }
 
-func (mgr *Kernel_manager) Create_db() {
-	C.create_db(&mgr.impl)
+func get_kernel(name string, version string) Kernel {
+	var k Kernel
+	k.Name = name
+	k.Version = version
+	k.RealTime = strings.Contains(name, "rt")
+	k.Experimental = strings.Contains(name, "rc")
+	k.Recommended = slices.Contains(recommended_kernels, name)
+	k.Lts = slices.Contains(lts_kernels, name)
+	return k
 }
 
 func (mgr *Kernel_manager) Get_kernels() []Kernel {
-	ckernels := C.get_kernels(mgr.impl.db)
-	kernels := make([]Kernel, ckernels.len)
+	var kernels []Kernel
 
-	for i, kernel := range unsafe.Slice(ckernels.data, ckernels.len) {
-		var k Kernel
-		gname := C.pamac_package_get_name(kernel)
-
-		k.Name = to_go_string(gname)
-		k.Version = to_go_string(C.pamac_package_get_version(kernel))
-		k.Installed = to_go_bool(C.pamac_database_is_installed_pkg(mgr.impl.db, gname))
-		k.RealTime = strings.Contains(k.Name, "rt")
-		k.Experimental = strings.Contains(k.Name, "rc")
-		k.Recommended = slices.Contains(recommended_kernels, k.Name)
-		k.Lts = slices.Contains(lts_kernels, k.Name)
-
-		kernels[i] = k
-	}
+	avail_pkgs := get_available_packages()
+	instl_pkgs := get_installed_packages()
 
 	var modules []string
+	module_regex, _ := regexp.Compile(pacman_kernel_regex + "-")
+
+	for name, version := range avail_pkgs {
+		if module_regex.MatchString(name) {
+			modules = append(modules, name)
+			continue
+		}
+
+		kernel := get_kernel(name, version)
+
+		if _, is_installed := instl_pkgs[name]; is_installed {
+			kernel.Installed = true
+		}
+
+		kernels = append(kernels, kernel)
+	}
 
 	for name, version := range get_installed_packages() {
-		if strings.Contains(name, "-") {
-			modules = append(modules, name)
+		if module_regex.MatchString(name) {
+			if !slices.Contains(modules, name) {
+				modules = append(modules, name)
+			}
 			continue
 		}
 
@@ -135,17 +131,11 @@ func (mgr *Kernel_manager) Get_kernels() []Kernel {
 			continue
 		}
 
-		var k Kernel
-		k.Name = name
-		k.Version = version
-		k.Installed = true
-		k.RealTime = strings.Contains(name, "rt")
-		k.Experimental = strings.Contains(name, "rc")
-		k.Recommended = slices.Contains(recommended_kernels, name)
-		k.Lts = slices.Contains(lts_kernels, name)
-		k.Eol = true
+		kernel := get_kernel(name, version)
+		kernel.Installed = true
+		kernel.Eol = true
 
-		kernels = append(kernels, k)
+		kernels = append(kernels, kernel)
 	}
 
 	running_kernel := get_running_kernel()
@@ -172,29 +162,77 @@ func (mgr *Kernel_manager) Get_kernels() []Kernel {
 		return is_newer(kernels[i].Version, kernels[j].Version)
 	})
 
-	C.free_kernels(&ckernels)
 	return kernels
 }
 
-//export op_callback
-func op_callback(result C.int) {
-	data := result == 1
-
-	Krlmgr.App.EmitEvent("kernelOpFinished", data)
-}
-
 func (mgr *Kernel_manager) Install_kernel(name string) {
-	cName := C.CString(name)
-	defer C.free(unsafe.Pointer(cName))
-
-	C.install_kernel(mgr.impl.db, cName)
+	pacman_install_remove_kernel(name, true)
 }
 
 func (mgr *Kernel_manager) Remove_kernel(name string) {
-	cName := C.CString(name)
-	defer C.free(unsafe.Pointer(cName))
+	pacman_install_remove_kernel(name, false)
+}
 
-	C.remove_kernel(mgr.impl.db, cName)
+func pacman_install_remove_kernel(name string, install bool) {
+	op := "-S"
+	op_long := "install"
+	if !install {
+		op = "-R"
+		op_long = "remove"
+	}
+
+	// Prepare the command
+	cmd := exec.Command("pkexec", "/usr/bin/pacman", "--noconfirm", "--noprogressbar", op, name)
+	cmd.Env = append(cmd.Env, "LANG=C", "LC_MESSAGES=C")
+
+	// Capture the output
+	var out bytes.Buffer
+	cmd.Stdout = &out
+	err := cmd.Run()
+	if err != nil {
+		log.Println("error: failed to", op_long, "kernel:", err)
+	}
+
+	Krlmgr.App.EmitEvent("kernelOpFinished", err == nil)
+}
+
+func get_available_packages() map[string]string {
+	// Prepare the command
+	cmd := exec.Command("pacman", "-Ss", pacman_kernel_regex)
+	cmd.Env = append(cmd.Env, "LANG=C", "LC_MESSAGES=C")
+
+	// Run the command and capture output
+	var out bytes.Buffer
+	cmd.Stdout = &out
+	err := cmd.Run()
+	if err != nil {
+		log.Println("error: failed to get available kernels", err)
+		return nil
+	}
+
+	// Parse the output
+	result := out.String()
+	lines := strings.Split(result, "\n")
+	packages := make(map[string]string)
+
+	for _, line := range lines {
+		if line == "" || strings.HasPrefix(line, " ") {
+			continue
+		}
+
+		parts := strings.Fields(line)
+		if len(parts) < 2 {
+			continue
+		}
+
+		repoName := parts[0]
+		pkgName := repoName[strings.Index(repoName, "/")+1:]
+		pkgVersion := parts[1]
+
+		packages[pkgName] = pkgVersion
+	}
+
+	return packages
 }
 
 func get_installed_packages() map[string]string {

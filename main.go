@@ -21,7 +21,6 @@ var assets embed.FS
 // logs any error that might occur.
 func main() {
 	// TODO: this should lazy load
-	backend.Krlmgr.Create_db()
 	backend.Fill_devices()
 	backend.Update_configs()
 
