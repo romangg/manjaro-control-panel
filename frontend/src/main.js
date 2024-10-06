@@ -9,6 +9,7 @@ import Button from "primevue/button"
 import DataView from 'primevue/dataview';
 import Message from 'primevue/message';
 import Breadcrumb from 'primevue/breadcrumb';
+import ProgressSpinner from 'primevue/progressspinner';
 
 const app = createApp(App);
 app.use(router);
@@ -23,3 +24,4 @@ app.component('Button', Button);
 app.component('DataView', DataView);
 app.component('Message', Message);
 app.component('Breadcrumb', Breadcrumb);
+app.component('ProgressSpinner', ProgressSpinner);

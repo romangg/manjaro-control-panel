@@ -6,13 +6,13 @@ import { Events } from "@wailsio/runtime";
 const kernels = ref([])
 const backendOpActive = ref('')
 
-console.log("XXX SCRIPT SETUP")
-
 const getKernels = () => {
   KernelService.Kernels().then((value) => {
     kernels.value = value;
+    backendOpActive.value = ''
   }).catch((err) => {
     console.log(err);
+    backendOpActive.value = ''
   });
 }
 
@@ -33,9 +33,9 @@ const doRemove = (name) => {
 
 onMounted(() => {
   Events.On("kernelOpFinished", function (event) {
-    backendOpActive.value = ''
     getKernels()
   })
+  backendOpActive.value = 'init-kernels'
   getKernels()
 })
 </script>
@@ -76,9 +76,11 @@ onMounted(() => {
                 </div>
               </div>
               <div class="justify-self-center">
-                <Button v-if="kernel.Installed" severity="danger" @click="doRemove(kernel.Name)"
-                  :disabled="kernel.Running">Remove</Button>
-                <Button v-else @click="doInstall(kernel.Name)">Install</Button>
+                <Button v-if="kernel.Installed && backendOpActive != kernel.Name" severity="danger" @click="doRemove(kernel.Name)"
+                  :disabled="kernel.Running || backendOpActive != ''">Remove</Button>
+                <Button v-if="!kernel.Installed && backendOpActive != kernel.Name" @click="doInstall(kernel.Name)"
+                  :disabled="backendOpActive != ''">Install</Button>
+                <ProgressSpinner v-if="backendOpActive == kernel.Name" style="width: 50px; height: 50px" strokeWidth="8" />
               </div>
             </div>
           </div>
