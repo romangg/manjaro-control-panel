@@ -52,12 +52,9 @@ func main() {
 	// 'BackgroundColour' is the background colour of the window.
 	// 'URL' is the URL that will be loaded into the webview.
 	app.NewWebviewWindowWithOptions(application.WebviewWindowOptions{
-		Title: "Manjaro Control Panel",
-		Mac: application.MacWindow{
-			InvisibleTitleBarHeight: 50,
-			Backdrop:                application.MacBackdropTranslucent,
-			TitleBar:                application.MacTitleBarHiddenInset,
-		},
+		Title:            "Manjaro Control Panel",
+		Width:            1600,
+		Height:           1000,
 		BackgroundColour: application.NewRGB(27, 38, 54),
 		URL:              "/",
 	})
