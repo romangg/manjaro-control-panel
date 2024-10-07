@@ -16,7 +16,8 @@ import (
 )
 
 type Kernel_manager struct {
-	App *application.App
+	Cache []Kernel
+	App   *application.App
 }
 
 type Kernel struct {
@@ -39,7 +40,7 @@ var Krlmgr Kernel_manager
 var recommended_kernels = []string{"linux414", "linux419", "linux54", "linux510", "linux515", "linux61", "linux66"}
 var lts_kernels = []string{"linux310", "linux312", "linux314", "linux316", "linux318", "linux41", "linux44", "linux49", "linux414", "linux414-rt", "linux419", "linux419-rt", "linux54", "linux510", "linux515", "linux61", "linux66"}
 
-const pacman_kernel_regex = `^linux([0-9][0-9]?([0-9])|[0-9][0-9]?([0-9])-rt)`
+const pacman_kernel_regex = `^linux([0-9][0-9]?[0-9]|[0-9][0-9]?[0-9]-rt)`
 
 type kernel_version struct {
 	Major int
@@ -99,12 +100,15 @@ func (mgr *Kernel_manager) Get_kernels() []Kernel {
 	avail_pkgs := get_available_packages()
 	instl_pkgs := get_installed_packages()
 
-	var modules []string
-	module_regex, _ := regexp.Compile(pacman_kernel_regex + "-")
+	rt_regex := regexp.MustCompile(`^linux[0-9][0-9]?[0-9]-rt$`)
+	module_regex := regexp.MustCompile(`^linux[0-9][0-9]?[0-9]-(.*)`)
+	module_rt_regex := regexp.MustCompile(`^linux[0-9][0-9]?[0-9]-rt-(.*)`)
+	is_module := func(name string) bool {
+		return module_rt_regex.MatchString(name) || (module_regex.MatchString(name) && !rt_regex.MatchString(name))
+	}
 
 	for name, version := range avail_pkgs {
-		if module_regex.MatchString(name) {
-			modules = append(modules, name)
+		if is_module(name) {
 			continue
 		}
 
@@ -117,10 +121,25 @@ func (mgr *Kernel_manager) Get_kernels() []Kernel {
 		kernels = append(kernels, kernel)
 	}
 
-	for name, version := range get_installed_packages() {
-		if module_regex.MatchString(name) {
-			if !slices.Contains(modules, name) {
-				modules = append(modules, name)
+	var instl_modules []string
+
+	for name, version := range instl_pkgs {
+		if is_module(name) {
+			var mod_name string
+
+			if matches := module_rt_regex.FindStringSubmatch(name); len(matches) > 1 {
+				mod_name = matches[1]
+			} else {
+				mod_name = module_regex.FindStringSubmatch(name)[1]
+			}
+
+			if mod_name == "" {
+				log.Println("error: could not identify module name for", name)
+				continue
+			}
+
+			if !slices.Contains(instl_modules, mod_name) {
+				instl_modules = append(instl_modules, mod_name)
 			}
 			continue
 		}
@@ -142,18 +161,17 @@ func (mgr *Kernel_manager) Get_kernels() []Kernel {
 	running_kernel_version, _ := get_kernel_version(running_kernel.Version)
 
 	for i := range kernels {
-		k := &kernels[i]
+		kernel := &kernels[i]
 
-		if version, _ := get_kernel_version(k.Version); version != nil && *running_kernel_version == *version &&
-			running_kernel.RealTime == k.RealTime {
-			k.Running = true
+		if version, _ := get_kernel_version(kernel.Version); version != nil && *running_kernel_version == *version &&
+			running_kernel.RealTime == kernel.RealTime {
+			kernel.Running = true
 		}
 
-		if k.Installed {
-			for _, mod := range modules {
-				if strings.HasPrefix(mod, k.Name) {
-					k.Installed_modules = append(k.Installed_modules, mod)
-				}
+		for _, mod := range instl_modules {
+			pkg_name := kernel.Name + "-" + mod
+			if _, ok := avail_pkgs[pkg_name]; ok {
+				kernel.Installed_modules = append(kernel.Installed_modules, pkg_name)
 			}
 		}
 	}
@@ -162,6 +180,7 @@ func (mgr *Kernel_manager) Get_kernels() []Kernel {
 		return is_newer(kernels[i].Version, kernels[j].Version)
 	})
 
+	Krlmgr.Cache = kernels
 	return kernels
 }
 
@@ -181,8 +200,25 @@ func pacman_install_remove_kernel(name string, install bool) {
 		op_long = "remove"
 	}
 
+	find_kernel := func() *Kernel {
+		for _, k := range Krlmgr.Cache {
+			if k.Name == name {
+				return &k
+			}
+		}
+		return nil
+	}
+	kernel := find_kernel()
+
+	if kernel == nil {
+		log.Println("error: failed to identify", name, "kernel")
+		Krlmgr.App.EmitEvent("kernelOpFinished", false)
+		return
+	}
+
 	// Prepare the command
-	cmd := exec.Command("pkexec", "/usr/bin/pacman", "--noconfirm", "--noprogressbar", op, name)
+	args := append([]string{"/usr/bin/pacman", "--noconfirm", "--noprogressbar", op, name}, kernel.Installed_modules...)
+	cmd := exec.Command("pkexec", args...)
 	cmd.Env = append(cmd.Env, "LANG=C", "LC_MESSAGES=C")
 
 	// Capture the output
