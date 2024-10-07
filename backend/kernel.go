@@ -1,6 +1,7 @@
 package backend
 
 import (
+	"bufio"
 	"bytes"
 	"errors"
 	"fmt"
@@ -221,14 +222,46 @@ func pacman_install_remove_kernel(name string, install bool) {
 	cmd := exec.Command("pkexec", args...)
 	cmd.Env = append(cmd.Env, "LANG=C", "LC_MESSAGES=C")
 
-	// Capture the output
-	var out bytes.Buffer
-	cmd.Stdout = &out
-	err := cmd.Run()
+	// Get a pipe to stdout
+	stdout_pipe, err := cmd.StdoutPipe()
+	if err != nil {
+		log.Println("error: failed to create stdout pipe:", err)
+		Krlmgr.App.EmitEvent("kernelOpFinished", false)
+		return
+	}
+
+	log.Println("start kernel", name, op_long)
+
+	// Start the command
+	if err := cmd.Start(); err != nil {
+		log.Println("error: failed to start command:", err)
+		Krlmgr.App.EmitEvent("kernelOpFinished", false)
+		return
+	}
+
+	// Continuously capture the output
+	var output string
+	scanner := bufio.NewScanner(stdout_pipe)
+	for scanner.Scan() {
+		line := scanner.Text()
+		output += line + "\n" // Append each line to the output string
+
+		// Emit a signal for each new line of output
+		Krlmgr.App.EmitEvent("kernelOpOutputLine", line)
+		log.Println(line)
+	}
+
+	if err := scanner.Err(); err != nil {
+		log.Println("error: reading command output:", err)
+	}
+
+	// Wait for the command to finish
+	err = cmd.Wait()
 	if err != nil {
 		log.Println("error: failed to", op_long, "kernel:", err)
 	}
 
+	// Emit the event only after the command finishes
 	Krlmgr.App.EmitEvent("kernelOpFinished", err == nil)
 }
 
