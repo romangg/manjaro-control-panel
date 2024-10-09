@@ -9,6 +9,9 @@ const goToKernels = () => {
 const goToHardware = () => {
   router.push('/hardware')
 }
+const goToLanguage = () => {
+  router.push('/language')
+}
 </script>
 
 <template>
@@ -18,6 +21,7 @@ const goToHardware = () => {
       <div class="flex gap-4">
         <Button label="Kernels" @click="goToKernels" />
         <Button label="Hardware" @click="goToHardware" />
+        <Button label="Language Packs" @click="goToLanguage" />
       </div>
     </div>
   </div>

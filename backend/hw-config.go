@@ -42,11 +42,11 @@ type Hw_config struct {
 
 func Update_configs() {
 	// Clear config vectors in each device element
-	for _, dev := range Hwmgr.Pci_devices {
-		dev.Available_configs = nil
+	for i := range Hwmgr.Pci_devices {
+		Hwmgr.Pci_devices[i].Available_configs = nil
 	}
-	for _, dev := range Hwmgr.Usb_devices {
-		dev.Available_configs = nil
+	for i := range Hwmgr.Usb_devices {
+		Hwmgr.Usb_devices[i].Available_configs = nil
 	}
 
 	Hwmgr.All_pci_configs = nil

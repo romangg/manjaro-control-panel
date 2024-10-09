@@ -35,6 +35,7 @@ func main() {
 		Services: []application.Service{
 			application.NewService(&KernelService{&backend.Krlmgr}),
 			application.NewService(&HwService{}),
+			application.NewService(&LanguageService{}),
 		},
 		Assets: application.AssetOptions{
 			Handler: application.AssetFileServerFS(assets),
